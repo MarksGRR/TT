@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logística Dashboard TT</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* --- ESTILOS GENERALES --- */
+        body { margin: 0; background: #1a1a1a; font-family: 'Segoe UI', Roboto, Helvetica, sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
+        
+        /* --- SIDEBAR IZQUIERDA --- */
+        .sidebar {
+            position: fixed; top: 20px; left: 20px; width: 60px;
+            display: flex; flex-direction: column; gap: 15px; z-index: 9999;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn {
+            background: rgba(30, 30, 30, 0.9); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1); color: #eee;
+            width: 60px; height: 60px; border-radius: 15px; cursor: pointer;
+            display: flex; align-items: center; justify-content: flex-start;
+            padding-left: 15px; overflow: hidden; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .menu-btn .icon { font-size: 24px; min-width: 30px; text-align: center; }
+        .menu-btn .label {
+            opacity: 0; white-space: nowrap; margin-left: 15px; font-size: 14px;
+            font-weight: 600; transform: translateX(-10px); transition: all 0.3s ease;
+        }
+
+        .menu-btn:hover { width: 180px; background: rgba(40, 40, 40, 0.95); }
+        .menu-btn:hover .label { opacity: 1; transform: translateX(0); }
+
+        .menu-btn.active { border-left: 4px solid white; }
+        .btn-sim:hover { border-left: 4px solid #E91E63; }
+        .btn-pts.active { border-left-color: #FF5722; }
+        .btn-zon.active { border-left-color: #00E676; }
+        .btn-glb.active { border-left-color: #2979FF; }
+        .btn-vip.active { border-left-color: #FFD700; }
+
+        /* --- DASHBOARD INFERIOR --- */
+        .dashboard-footer {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 20px; z-index: 9999;
+            align-items: flex-end;
+        }
+
+        .metric-card {
+            background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 15px 25px; border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            min-width: 140px; text-align: center;
+            display: none; 
+            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .metric-card.visible { display: block; }
+        .metric-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; color: #aaa; font-weight: 700; }
+        .metric-value { font-size: 18px; font-weight: 800; color: #fff; }
+        .metric-sub { font-size: 12px; color: #888; margin-top: 2px; }
+
+        .card-glb { border-bottom: 4px solid #2979FF; } .card-glb .metric-value { color: #2979FF; }
+        .card-vip { border-bottom: 4px solid #FFD700; } .card-vip .metric-value { color: #FFD700; }
+        .card-zon { border-bottom: 4px solid #00E676; } .card-zon .metric-value { color: #00E676; }
+
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* --- LOADER --- */
+        #loading {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #E91E63; color: white; padding: 10px 30px; border-radius: 50px;
+            z-index: 10000; font-weight: bold; display: none; font-size: 13px; letter-spacing: 1px;
+            box-shadow: 0 10px 30px rgba(233, 30, 99, 0.4); animation: pulse 1.5s infinite;
+        }
+
+        /* --- POPUPS --- */
+        .leaflet-popup-content-wrapper { background: rgba(20, 20, 20, 0.95); color: white; border-radius: 12px; border: 1px solid #444; }
+        .leaflet-popup-tip { background: rgba(20, 20, 20, 0.95); }
+        .popup-btn { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 5px; width: 100%; font-weight: 700; transition: transform 0.2s; }
+        .popup-btn:hover { transform: scale(1.02); }
+        .btn-start { background: linear-gradient(135deg, #00E676, #00C853); color: #000; }
+        .btn-end { background: linear-gradient(135deg, #FF5252, #D50000); color: #fff; }
+        .btn-advance { background: linear-gradient(135deg, #2979FF, #2962FF); color: white; }
+        .btn-check { background: #444; color: #fff; }
+        .btn-skip { background: transparent; border: 1px solid #FF5252; color: #FF5252; }
+        .btn-restore { background: #444; border: 1px solid #aaa; color: #aaa; }
+        .tag-visited { color: #888; text-decoration: line-through; display:block; margin-bottom:5px; font-size:10px;}
+        .tag-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-bottom: 5px; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="loading">📡 PROCESANDO LOGÍSTICA...</div>
+    <div id="map"></div>
+    
+    <div class="sidebar">
+        <button class="menu-btn btn-sim" onclick="resetSimulacion()"><span class="icon">🎲</span><span class="label">Generar Nuevos</span></button>
+        <button id="b_pts" class="menu-btn btn-pts active" onclick="toggle('paradas')"><span class="icon">📍</span><span class="label">Puntos</span></button>
+        <button id="b_zon" class="menu-btn btn-zon active" onclick="toggle('clusters')"><span class="icon">📦</span><span class="label">Zonas</span></button>
+        <button id="b_glb" class="menu-btn btn-glb" onclick="toggle('global')"><span class="icon">🌐</span><span class="label">Ruta Global</span></button>
+        <button id="b_vip" class="menu-btn btn-vip" onclick="toggle('vip')"><span class="icon">👑</span><span class="label">Ruta VIP</span></button>
+    </div>
+
+    <div class="dashboard-footer">
+        <div id="card_zon" class="metric-card card-zon"><div class="metric-title">📦 FLOTA (ZONAS)</div><div class="metric-value" id="val_zon">0</div><div class="metric-sub">Vehículos activos</div></div>
+        <div id="card_glb" class="metric-card card-glb"><div class="metric-title">🌐 RUTA GLOBAL</div><div class="metric-value" id="val_glb_dist">0 km</div><div class="metric-sub" id="val_glb_time">0 min</div></div>
+        <div id="card_vip" class="metric-card card-vip"><div class="metric-title">👑 PRIORIDAD VIP</div><div class="metric-value" id="val_vip_dist">0 km</div><div class="metric-sub" id="val_vip_time">0 min</div></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-ant-path@1.3.0/dist/leaflet-ant-path.js"></script>
+    
+    <script>
+        const API = "http://127.0.0.1:8000"; 
+        const CENTRO = [19.4938, -99.0478]; 
+
+        const map = L.map('map', {zoomControl: false}).setView(CENTRO, 15);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO', maxZoom: 20 }).addTo(map);
+
+        const layers = { paradas: L.layerGroup().addTo(map), clusters: L.layerGroup().addTo(map), global: L.layerGroup(), vip: L.layerGroup() };
+
+        let idInicioActual = null; let idFinActual = null; let ordenRutaGlobal = [];
+
+        function resetSimulacion() { idInicioActual = null; idFinActual = null; ordenRutaGlobal = []; simular(null, null); }
+
+        async function simular(accionId = null, accionTipo = null) {
+            const loader = document.getElementById("loading"); loader.style.display = 'block';
+            let url = `${API}/simulacion-leaflet`;
+            const params = [];
+            if (idInicioActual) params.push(`id_inicio=${idInicioActual}`);
+            if (idFinActual) params.push(`id_fin=${idFinActual}`);
+            if (accionId && accionTipo) { params.push(`accion_id=${accionId}`); params.push(`accion_tipo=${accionTipo}`); }
+            if (params.length > 0) url += `?${params.join('&')}`;
+
+            try {
+                Object.values(layers).forEach(l => l.clearLayers());
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Error API");
+                const data = await res.json();
+                
+                if (data.ruta_global && data.ruta_global.ids) ordenRutaGlobal = data.ruta_global.ids;
+
+                data.paradas.forEach(p => {
+                    let color = '#FF5722'; let radio = 6; let stroke = '#fff'; let opacidad = 1;
+                    if (p.estado === "VISITADO") { color = '#333'; stroke = '#555'; opacidad = 0.4; } 
+                    else if (p.estado === "OMITIDO") { color = '#220000'; stroke = '#521'; opacidad = 0.3; } 
+                    else {
+                        if (p.tipo === "INICIO") { color = '#000'; radio = 10; stroke = '#00E676'; } 
+                        else if (p.tipo === "FIN") { color = '#000'; radio = 10; stroke = '#D50000'; }
+                        else if (p.tipo === "VIP") { color = '#FFD700'; radio = 8; }
+                    }
+
+                    const marker = L.circleMarker([p.lat, p.lon], { color: stroke, fillColor: color, radius: radio, weight: 2, fillOpacity: opacidad }).addTo(layers.paradas);
+
+                    let header = p.estado === "VISITADO" ? `<span class="tag-visited">✅ VISITADO</span>` : 
+                                 p.estado === "OMITIDO" ? `<span class="tag-visited" style="color:#FF5252">🚫 OMITIDO</span>` :
+                                 `<span class="tag-status" style="background:#333; color:#fff">PENDIENTE</span>`;
+                    
+                    let controles = "";
+                    if (p.estado === "PENDIENTE") {
+                        if (p.tipo === "INICIO") controles = `<button class="popup-btn btn-advance" onclick="avanzarRuta('${p.id}')">🚀 SALIR / SIGUIENTE</button><button class="popup-btn btn-skip" style="border:none; color:#aaa" onclick="fijarInicio(null)">Cancelar Inicio</button>`;
+                        else if (p.tipo === "FIN") controles = `<button class="popup-btn btn-skip" style="border:none" onclick="fijarFin(null)">Quitar Destino</button>`;
+                        else {
+                            if (!idInicioActual) controles += `<button class="popup-btn btn-start" onclick="fijarInicio('${p.id}')">🏁 Empezar Aquí</button>`;
+                            if (!idFinActual) controles += `<button class="popup-btn btn-end" onclick="fijarFin('${p.id}')">🛑 Terminar Aquí</button>`;
+                            if (p.tipo === "NORMAL" || p.tipo === "VIP") controles += `<div style="display:flex; gap:5px; margin-top:5px;"><button class="popup-btn btn-check" onclick="cambiarEstado('${p.id}', 'visitar')">✔ Ya fui</button><button class="popup-btn btn-skip" onclick="cambiarEstado('${p.id}', 'omitir')">✖ Omitir</button></div>`;
+                        }
+                    } else controles = `<button class="popup-btn btn-restore" onclick="cambiarEstado('${p.id}', 'restaurar')">↩ Restaurar</button>`;
+
+                    const htmlPopup = `<div style="font-family:'Segoe UI', sans-serif; min-width:160px;"><div style="display:flex; justify-content:space-between; align-items:center;"><strong style="font-size:15px; color:#fff">${p.id}</strong><small style="color:#888">${p.tipo}</small></div>${header}<hr style="border-color:#444; opacity:0.5; margin:8px 0;">${controles}</div>`;
+                    marker.bindPopup(htmlPopup);
+                });
+
+                // ZONAS
+                const zonasData = data.rutas_clusters || [];
+                document.getElementById('val_zon').innerText = zonasData.length;
+                const colors = ['#00E676', '#CDDC39', '#FF4081', '#E040FB', '#00BCD4'];
+                zonasData.forEach((cluster, i) => {
+                    if(cluster.coords.length) {
+                        L.polyline.antPath(cluster.coords, { "delay": 1000 + (i * 100), "dashArray": [10, 20], "weight": 4, "color": colors[i % colors.length], "pulseColor": "#FFFFFF" }).bindTooltip(`${cluster.label}<br>${cluster.tiempo}`).addTo(layers.clusters);
+                    }
+                });
+
+                // GLOBAL
+                const rutaG = data.ruta_global;
+                if(rutaG && rutaG.coords.length) {
+                    L.polyline.antPath(rutaG.coords, { "delay": 400, "dashArray": [10, 20], "weight": 5, "color": "#2979FF", "pulseColor": "#FFFFFF" }).addTo(layers.global);
+                    document.getElementById('val_glb_dist').innerText = `${rutaG.km} km`; document.getElementById('val_glb_time').innerText = rutaG.tiempo;
+                } else { document.getElementById('val_glb_dist').innerText = "0 km"; document.getElementById('val_glb_time').innerText = "--"; }
+
+                // VIP
+                const rutaV = data.ruta_vip;
+                if(rutaV && rutaV.coords.length) {
+                    L.polyline.antPath(rutaV.coords, { "delay": 800, "dashArray": [15, 30], "weight": 8, "color": "#FFD700", "pulseColor": "#FFFDE7" }).addTo(layers.vip);
+                    document.getElementById('val_vip_dist').innerText = `${rutaV.km} km`; document.getElementById('val_vip_time').innerText = rutaV.tiempo;
+                } else { document.getElementById('val_vip_dist').innerText = "0 km"; document.getElementById('val_vip_time').innerText = "N/A"; }
+
+                checkVisibility();
+            } catch(e) { console.error(e); alert("⚠️ Error: " + e.message); } 
+            finally { loader.style.display = 'none'; }
+        }
+
+        function toggle(name) {
+            const btnMap = {'paradas':'b_pts', 'clusters':'b_zon', 'global':'b_glb', 'vip':'b_vip'};
+            const btn = document.getElementById(btnMap[name]);
+            if(map.hasLayer(layers[name])) { map.removeLayer(layers[name]); btn.classList.remove('active'); } 
+            else { map.addLayer(layers[name]); btn.classList.add('active'); }
+            checkVisibility();
+        }
+
+        function checkVisibility() {
+            document.getElementById('card_zon').classList.toggle('visible', map.hasLayer(layers.clusters));
+            document.getElementById('card_glb').classList.toggle('visible', map.hasLayer(layers.global));
+            document.getElementById('card_vip').classList.toggle('visible', map.hasLayer(layers.vip));
+        }
+
+        window.avanzarRuta = function(idActual) {
+            let nextId = null; const idx = ordenRutaGlobal.indexOf(idActual);
+            if (idx !== -1 && idx < ordenRutaGlobal.length - 1) nextId = ordenRutaGlobal[idx + 1];
+            else if (ordenRutaGlobal.length > 1) nextId = ordenRutaGlobal[1];
+            if (nextId) { idInicioActual = nextId; simular(idActual, 'visitar'); }
+            else { alert("🎉 ¡Ruta completada!"); simular(idActual, 'visitar'); idInicioActual = null; }
+        };
+
+        window.fijarInicio = function(id) { if (id === idFinActual && id !== null) { alert("¡Conflicto!"); return; } idInicioActual = id; simular(); };
+        window.fijarFin = function(id) { if (id === idInicioActual && id !== null) { alert("¡Conflicto!"); return; } idFinActual = id; simular(); };
+        window.cambiarEstado = function(id, accion) { simular(id, accion); };
+    </script>
+</body>
+</html>
