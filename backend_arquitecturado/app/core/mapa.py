@@ -1,28 +1,31 @@
-# app/core/mapa.py
 import osmnx as ox
 import networkx as nx
-from .config import LAT_CENTRO, LON_CENTRO, RADIO_CARGA_MAPA, VEL_CALLE, VEL_AVENIDA
+# IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
+from app.core.config import (
+    LAT_CENTRO, LON_CENTRO, RADIO_CARGA_MAPA,
+    VEL_CALLE_KMH, VEL_AVENIDA_KMH, TIPOS_AVENIDA
+)
 
-# Variable Global que guardará el mapa en memoria RAM
-grafo_global = None
+G = None
+
+def get_grafo():
+    return G
 
 def cargar_mapa():
-    """Descarga y procesa el mapa de OSMnx"""
-    global grafo_global
-    print(f"\n>>> 📡 CARGANDO MAPA DE: {LAT_CENTRO}, {LON_CENTRO}...")
-    
+    global G
+    print(f"\n>>> 📡 CARGANDO MAPA ({RADIO_CARGA_MAPA}m)...")
     try:
-        # 1. Descargar
-        G = ox.graph_from_point((LAT_CENTRO, LON_CENTRO), dist=RADIO_CARGA_MAPA, network_type='drive')
+        # 1. Descargar Grafo
+        G_gps = ox.graph_from_point((LAT_CENTRO, LON_CENTRO), dist=RADIO_CARGA_MAPA, network_type='drive')
         
-        # 2. Limpiar (Componente más grande)
-        largest_cc = max(nx.strongly_connected_components(G), key=len)
-        G = G.subgraph(largest_cc).copy()
+        # 2. LIMPIEZA AGRESIVA DE ISLAS (Esto arregla rutas de 87km)
+        # Nos quedamos solo con el grupo de calles que están todas conectadas entre sí
+        largest_cc = max(nx.strongly_connected_components(G_gps), key=len)
+        G = G_gps.subgraph(largest_cc).copy()
         
-        # 3. Procesar Costos (Penalización de Avenidas)
-        lista_avs = ['primary', 'secondary', 'trunk', 'primary_link', 'secondary_link']
-        speed_calle_ms = VEL_CALLE / 3.6
-        speed_av_ms = VEL_AVENIDA / 3.6
+        # 3. Asignar Velocidades (V-Plata)
+        speed_calle_ms = VEL_CALLE_KMH / 3.6
+        speed_av_ms = VEL_AVENIDA_KMH / 3.6
 
         for u, v, k, data in G.edges(keys=True, data=True):
             tipo = data.get('highway', 'residential')
@@ -30,23 +33,17 @@ def cargar_mapa():
             
             length = data.get('length', 10)
             
-            # Costo 1: Tiempo Real
-            velocidad = speed_av_ms if tipo in lista_avs else speed_calle_ms
-            data['travel_time'] = length / velocidad
-            
-            # Costo 2: Agrupación (Penalización x10)
-            if tipo in lista_avs:
-                data['costo_agrupacion'] = length * 10
+            # Asignación precisa
+            if tipo in TIPOS_AVENIDA:
+                velocidad = speed_av_ms
             else:
-                data['costo_agrupacion'] = length
+                velocidad = speed_calle_ms
+            
+            # GUARDAMOS EL TIEMPO EN SEGUNDOS
+            data['travel_time'] = length / velocidad
+
+        print(">>> ✅ MAPA LISTO: Velocidades V-Plata aplicadas.")
         
-        grafo_global = G
-        print(">>> ✅ MAPA LISTO Y PROCESADO.")
-        return True
     except Exception as e:
         print(f">>> ❌ ERROR CARGANDO MAPA: {e}")
-        return False
-
-def get_grafo():
-    """Función para obtener el mapa desde otros archivos"""
-    return grafo_global
+        G = None

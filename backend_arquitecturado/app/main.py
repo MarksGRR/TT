@@ -29,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir las rutas (Endpoints)
+# Incluir las rutas (Endpoints
 app.include_router(endpoints.router)
 @app.get("/")
 def serve_home():
