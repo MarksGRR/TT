@@ -103,6 +103,3 @@ def optimizar_indices(indices_activos, sub_matriz, idx_arranque=None, idx_destin
                 if sub_matriz[ia][ib] + sub_matriz[ic][id_] < sub_matriz[ia][ib] + sub_matriz[ic][id_]:
                     ruta_local[i:j] = ruta_local[i:j][::-1]; mejoro = True
     return [indices_activos[i] for i in ruta_local]
-
-# --- MANTÉN TUS OTRAS FUNCIONES AUXILIARES ---
-# (calcular_nueva_ruta_global, obtener_cluster_manual, etc.)

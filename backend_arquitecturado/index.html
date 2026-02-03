@@ -6,22 +6,19 @@
     <title>Fleet Master Pro</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* ESTILOS GENERALES */
+        /* --- ESTILOS GENERALES --- */
         body { margin: 0; background: #121212; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; -webkit-tap-highlight-color: transparent; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* BOTÓN DE MENÚ (Fixed Top-Left) */
         #sidebar-toggle {
             position: fixed; top: 20px; left: 20px; z-index: 3000;
             background: #2962FF; color: white; border: none; border-radius: 12px;
             width: 45px; height: 45px; font-size: 24px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
             transition: transform 0.2s;
         }
         #sidebar-toggle:hover { transform: scale(1.05); }
 
-        /* --- MENÚ FLOTANTE (TIPO DROPDOWN) --- */
         .sidebar {
             position: fixed; top: 80px; left: 20px; width: 260px;
             max-height: calc(100vh - 100px); background: rgba(18, 18, 18, 0.95);
@@ -36,7 +33,6 @@
         .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
         .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
 
-        /* BOTONES DEL MENÚ LATERAL */
         .menu-btn {
             width: 100%; min-height: 50px; background: transparent;
             border: 1px solid transparent; color: #eee; border-radius: 8px;
@@ -53,55 +49,33 @@
 
         hr { width: 100%; border-color: #333; margin: 10px 0; border-style: solid; border-width: 0 0 1px 0; flex-shrink: 0; }
         
-        /* NUEVOS BOTONES FLOTANTES (LAYERS) */
-        #floating-layers {
-            position: fixed;
-            bottom: 200px; /* Encima del cuadro de consumo */
-            right: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            z-index: 2999;
-        }
-
+        #floating-layers { position: fixed; bottom: 200px; right: 15px; display: flex; flex-direction: column; gap: 12px; z-index: 2999; }
         .layer-btn {
-            width: 50px; height: 50px;
-            border-radius: 50%;
-            border: 2px solid #444;
-            background: #222;
-            color: #aaa;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.6);
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 50px; height: 50px; border-radius: 50%; border: 2px solid #444; background: #222; color: #aaa;
+            font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.6); transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
         }
-
         .layer-btn:hover { transform: scale(1.1); background: #333; }
-        
-        /* Estados Activos de los Botones Flotantes */
-        #btn_clusters.active { border-color: #C6FF00; color: #C6FF00; background: rgba(198, 255, 0, 0.15); box-shadow: 0 0 15px rgba(198, 255, 0, 0.3); }
-        #btn_glb.active { border-color: #2962FF; color: #2962FF; background: rgba(41, 98, 255, 0.15); box-shadow: 0 0 15px rgba(41, 98, 255, 0.3); }
-        #btn_vip.active { border-color: #FFD700; color: #FFD700; background: rgba(255, 215, 0, 0.15); box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+        #btn_clusters.active { border-color: #C6FF00; color: #C6FF00; background: rgba(198, 255, 0, 0.15); }
+        #btn_glb.active { border-color: #2962FF; color: #2962FF; background: rgba(41, 98, 255, 0.15); }
+        #btn_vip.active { border-color: #FFD700; color: #FFD700; background: rgba(255, 215, 0, 0.15); }
 
-        /* MINI MENÚ ZONAS */
-        .zone-wrapper { position: relative; width: 100%; flex-shrink: 0; }
+        .zone-wrapper { position: relative; width: 100%; flex-shrink: 0; display: flex; flex-direction: column; margin-bottom: 5px; }
         .mini-menu { 
-            position: absolute; left: 100%; top: 0; margin-left: 10px;
-            background: #222; border: 1px solid #555; border-radius: 10px;
-            display: none; gap: 5px; padding: 5px; z-index: 2005;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.8); animation: fadeIn 0.2s; 
+            position: relative; left: 0; top: 0; margin: 0; width: 100%;
+            background: #1a1a1a; border: 1px solid #333; border-top: none; border-radius: 0 0 8px 8px;
+            display: none; flex-direction: row; justify-content: space-evenly; align-items: center; padding: 8px 0;
+            box-shadow: inset 0 5px 10px rgba(0,0,0,0.5); animation: slideDown 0.2s ease-out;
         }
-        @keyframes fadeIn { from{opacity:0; transform: translateX(-5px);} to{opacity:1; transform: translateX(0);} }
-        .mini-btn { width: 45px; height: 45px; border-radius: 8px; border: none; font-size: 20px; cursor: pointer; color: white; }
-        .btn-edit { background: #00E676; color: #000; } .btn-del { background: #D50000; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .mini-btn { width: 40%; height: 35px; border-radius: 6px; border: 1px solid #444; font-size: 16px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+        .mini-btn:hover { transform: scale(1.05); }
+        .btn-edit { background: #2e7d32; } .btn-del { background: #c62828; }
 
-        /* UI FLOTANTE */
         #exit-edit-btn { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #D50000; color: white; border: 2px solid white; padding: 10px 25px; border-radius: 30px; font-weight: bold; z-index: 3000; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         #manual-toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #00E676; color: black; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 12px; z-index: 2999; display: none; box-shadow: 0 4px 10px rgba(0,230,118,0.4); animation: bounce 0.5s; pointer-events: none;}
         @keyframes bounce { 0%{transform:translate(-50%,-10px);opacity:0;} 50%{transform:translate(-50%,5px);} 100%{transform:translate(-50%,0);opacity:1;} }
 
-        /* DASHBOARD */
         .dashboard-footer { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; gap: 10px; z-index: 2000; align-items: flex-end; overflow-x: auto; padding: 0 10px; pointer-events: none; }
         .metric-card { background: rgba(20, 20, 20, 0.95); border: 1px solid #444; padding: 10px; border-radius: 10px; min-width: 100px; border-bottom: 4px solid #555; flex-shrink: 0; pointer-events: auto; }
         .card-title { font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
@@ -111,7 +85,6 @@
         .cons-label { font-size: 10px; color: #00E676; font-weight: bold; text-transform: uppercase; }
         .cons-val { font-size: 18px; font-weight: 800; color: white; } .cons-unit { font-size: 12px; color: #ccc; }
 
-        /* MODALES */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: none; justify-content: center; align-items: center; backdrop-filter: blur(8px); flex-direction: column; }
         .modal-box { background: #222; border: 1px solid #555; border-radius: 15px; padding: 25px; width: 85%; max-width: 350px; text-align: center; }
         .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: white; }
@@ -123,21 +96,24 @@
         .veh-options { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
         .veh-btn { background: #333; border: 1px solid #555; padding: 15px; border-radius: 10px; cursor: pointer; width: 90px; }
         .veh-btn:hover { background: #00E676; color: black; transform: scale(1.05); }
+        
         .input-group { margin-bottom: 20px; text-align: left; display: none; }
         .custom-input { width: 100%; padding: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 8px; outline: none; margin-bottom: 5px; }
         .presets-container { display: flex; gap: 5px; margin-top: 5px; }
         .preset-btn { flex: 1; padding: 8px; border: 1px solid #444; background: #222; color: #ccc; border-radius: 6px; font-size: 10px; cursor: pointer; }
-        
         .btn-primary { background: #2962FF; color: white; padding: 12px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .btn-cancel { background: #444; color: white; padding: 12px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-confirm-danger { background: #D50000; color: white; padding: 12px; width: 100%; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 10px; cursor: pointer; }
 
-        /* POPUP STYLES */
         .leaflet-popup-content-wrapper { background: #222; color: #fff; } 
         .leaflet-popup-content { margin: 10px; width: 220px !important; text-align: center; }
         .popup-btn { width: 100%; padding: 10px; margin-top: 5px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; text-transform: uppercase; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        
-        .btn-check { background: #2E7D32; } .btn-skip { background: #C62828; } .btn-start { background: #00E676; color: black; } .btn-end { background: #FF1744; } .btn-restore { background: #455A64; } .btn-warn { background: #FF9100; color: black; }
+        .btn-check { background: #2E7D32; } 
+        .btn-skip { background: #C62828; } 
+        .btn-start { background: #00E676; color: black; } 
+        .btn-end { background: #FF1744; } 
+        .btn-restore { background: #455A64; } 
+        .btn-warn { background: #FF9100; color: black; }
 
         .custom-marker { display: flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.6); border: 2px solid white; }
         .bg-normal { background: #616161; } .bg-start { background: #00E676; border-color: #000; color: #000; } .bg-end { background: #FF1744; border-color: #fff; } .bg-visited { background: #212121; color: #666; opacity: 0.7; } .bg-vip { background: #FFD700; color: black; border-color: #FFC107; }
@@ -177,9 +153,6 @@
         </div>
         <div class="menu-btn" onclick="openZoneSelection()"> <span class="icon">🎲</span><span class="label">Generar Aleatorio</span>
         </div>
-        <div class="menu-btn" onclick="cleanRoute()">
-            <span class="icon" style="color:#FFA726">🧹</span><span class="label">Limpiar Mapa</span>
-        </div>
         
         <hr>
         <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:5px; padding-left:10px;">ZONAS & RUTAS</div>
@@ -188,17 +161,23 @@
             <span class="icon">➕</span><span class="label">Nueva Zona Manual</span>
         </div>
         <div id="zone_list" style="display:flex; flex-direction:column; gap:4px;"></div>
-        </div>
+    </div>
 
     <div id="zone-selection-modal" class="modal-overlay">
-        <div class="modal-box">
+        <div class="modal-box" style="max-width: 400px;">
             <div class="modal-title">🎲 ¿Dónde generar?</div>
-            <div style="display:flex; gap:10px; justify-content:center; margin-bottom:10px;">
-                <button class="veh-btn" onclick="generateRandomZone('neza')">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+                <button class="veh-btn" style="width:100%" onclick="generateRandomZone('neza')">
                     <span style="font-size:24px">🏙️</span><br>NEZA
                 </button>
-                <button class="veh-btn" onclick="generateRandomZone('ipn')">
-                    <span style="font-size:24px">🏫</span><br>IPN / LINDA
+                <button class="veh-btn" style="width:100%" onclick="generateRandomZone('ipn')">
+                    <span style="font-size:24px">🏫</span><br>IPN
+                </button>
+                <button class="veh-btn" style="width:100%" onclick="generateRandomZone('santa_fe')">
+                    <span style="font-size:24px">🏢</span><br>SANTA FE
+                </button>
+                <button class="veh-btn" style="width:100%" onclick="generateRandomZone('sur')">
+                    <span style="font-size:24px">🌳</span><br>SUR (C.U.)
                 </button>
             </div>
             <button class="btn-cancel" onclick="closeZoneSelection()">Cancelar</button>
@@ -285,9 +264,7 @@
     
     <script>
         const API = "http://127.0.0.1:8000"; 
-        
-        // CENTRO INICIAL (PUNTO MEDIO)
-        const map = L.map('map', {zoomControl: false}).setView([19.4650, -99.0800], 12);
+        const map = L.map('map', {zoomControl: false}).setView([19.4326, -99.1332], 11);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
 
         const layers = { paradas: L.layerGroup().addTo(map), rutas: L.layerGroup().addTo(map), global: L.layerGroup(), vip: L.layerGroup(), gps: L.layerGroup().addTo(map) };
@@ -296,7 +273,8 @@
         let initialSnapshot = { km: 0, stops: 0, captured: false };
         const COLORES = ["#00B0FF", "#D500F9", "#76FF03", "#FF9100", "#F50057", "#651FFF"];
 
-        // --- LÓGICA MODO MANUAL ---
+        window.onload = function() { simular(null, null, null, true); };
+
         let manualMode = false;
         function toggleManualMode() {
             manualMode = !manualMode;
@@ -314,7 +292,6 @@
             }
         });
 
-        // --- ZONA SELECTION ---
         function openZoneSelection() { document.getElementById('zone-selection-modal').style.display='flex'; toggleSidebar(); }
         function closeZoneSelection() { document.getElementById('zone-selection-modal').style.display='none'; }
         
@@ -324,7 +301,6 @@
             simular(null, "generar_random", null, true, zone);
         }
 
-        // --- MENÚ FLOTANTE LOGIC ---
         function toggleSidebar() {
             const sb = document.getElementById('main-sidebar'); sb.classList.toggle('open');
             const btn = document.getElementById('sidebar-toggle');
@@ -332,7 +308,6 @@
             else { btn.innerHTML='☰'; btn.style.background='#2962FF'; }
         }
 
-        // --- GPS ---
         function toggleGPS() {
             if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId=null; layers.gps.clearLayers(); alert("GPS Off"); }
             else {
@@ -350,7 +325,6 @@
             }
         }
 
-        // --- WIZARD ---
         function selectType(t) { vehicleConfig.type=t; document.getElementById('step-1').style.display='none'; if(t==='bike'){vehicleConfig.rate=0;finishSetup();return;} document.getElementById(t==='moto'?'step-3':'step-2').style.display='block'; vehicleConfig.unit=t==='moto'?'L':'L'; }
         function selectFuel(f) { vehicleConfig.fuel=f; document.getElementById('step-2').style.display='none'; document.getElementById('step-3').style.display='block'; vehicleConfig.unit=f==='fuel'?'L':'kWh'; }
         function setPreset(v) { document.getElementById('stop-cost-input').value = v; }
@@ -363,27 +337,35 @@
             document.getElementById('cons-display-unit').innerText=vehicleConfig.unit;
         }
 
-        // --- SEARCH ---
         function openSearchModal(){document.getElementById('search-modal').style.display='flex';}
         function closeSearchModal(){document.getElementById('search-modal').style.display='none';}
         function handleEnter(e){if(e.key==='Enter')searchAddress();}
+        
         async function searchAddress() {
-            const q=document.getElementById('address-input').value; if(!q)return;
-            document.getElementById("loading").style.display='block';
+            const q = document.getElementById('address-input').value; 
+            if (!q) return;
+            document.getElementById("loading").style.display = 'block';
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
+                const viewbox = "-99.40,19.75,-98.80,19.05";
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}&bounded=1&limit=10`;
+                const res = await fetch(url);
                 const r = await res.json();
-                if(r.length>0) {
-                    const {lat, lon, display_name} = r[0]; closeSearchModal(); map.setView([lat, lon], 16);
-                    if(confirm(`¿Crear parada en: ${display_name.substring(0,25)}...?`)) {
-                        simular(null, "crear_manual", null, false, null, parseFloat(lat), parseFloat(lon));
-                        document.getElementById('address-input').value='';
-                    }
-                } else alert("No encontrado");
-            } catch(e){alert("Error");} finally {document.getElementById("loading").style.display='none';}
+                if (r.length > 0) {
+                    const centerLat = 19.4326; const centerLon = -99.1332;
+                    r.sort((a, b) => {
+                        const distA = Math.pow(parseFloat(a.lat) - centerLat, 2) + Math.pow(parseFloat(a.lon) - centerLon, 2);
+                        const distB = Math.pow(parseFloat(b.lat) - centerLat, 2) + Math.pow(parseFloat(b.lon) - centerLon, 2);
+                        return distA - distB; 
+                    });
+                    const best = r[0];
+                    closeSearchModal();
+                    map.setView([best.lat, best.lon], 17);
+                    L.popup().setLatLng([best.lat, best.lon]).setContent(`<b>📍 Resultado ZMVM:</b><br>${best.display_name.substring(0,60)}...`).openOn(map);
+                    document.getElementById('address-input').value = '';
+                } else { alert("No encontrado en ZMVM."); }
+            } catch (e) { alert("Error"); } finally { document.getElementById("loading").style.display = 'none'; }
         }
 
-        // --- ZONES ---
         window.addZone = () => { if(zoneList.length>=6)return alert("Max 6"); let id=0; while(zoneList.includes(id))id++; zoneList.push(id); startEditing(id); };
         window.toggleMenu = (id) => {
             if(activeZone===id){stopEditing();return;}
@@ -406,7 +388,6 @@
             });
         }
 
-        // --- COMM (API) ---
         window.simular = async function(aid=null, atip=null, vext=null, reset=false, zone=null, lat=null, lon=null) {
             document.getElementById("loading").style.display='block';
             let url = `${API}/simulacion-leaflet?`;
@@ -414,8 +395,6 @@
             if(aid) url+=`accion_id=${aid}&`;
             if(atip) url+=`accion_tipo=${atip}&`;
             if(vext!==null) url+=`valor_extra=${vext}&`;
-            
-            // LOGICA MULTI-ZONA Y MANUAL
             if(zone) url+=`zona_generacion=${zone}&`; 
             if(lat&&lon) url+=`lat_manual=${lat}&lon_manual=${lon}&`;
 
@@ -426,22 +405,31 @@
                     initialSnapshot.km=parseFloat(data.ruta_global.km); initialSnapshot.stops=data.paradas.length; initialSnapshot.captured=true;
                 }
                 renderMap(data);
-                
-                // ZOOM AUTOMÁTICO SEGÚN ZONA
                 if(zone === 'ipn') map.setView([19.5030, -99.1475], 13);
-                if(zone === 'neza') map.setView([19.4938, -99.0478], 13);
-
+                if(zone === 'neza') map.setView([19.4000, -99.0200], 13);
+                if(zone === 'santa_fe') map.setView([19.3610, -99.2740], 13);
+                if(zone === 'sur') map.setView([19.2900, -99.1600], 13);
             } catch(e){console.error(e); if(reset)alert("Error: "+e.message);} 
             finally{document.getElementById("loading").style.display='none';}
         }
 
-        // --- RENDER ---
+        window.visitAndFinish = async (id) => {
+            await simular(id, 'visitar');
+            executeForceFinish();
+        };
+
         function renderMap(data) {
             Object.values(layers).forEach(l=>{if(l!==layers.gps)l.clearLayers();});
-            const hasStart=data.paradas.some(p=>p.tipo==='INICIO'), hasEnd=data.paradas.some(p=>p.tipo==='FIN');
+            const hasStart=data.paradas.some(p=>p.tipo==='INICIO' || p.tipo==='INICIO_FIN'), hasEnd=data.paradas.some(p=>p.tipo==='FIN');
             const pending=data.paradas.filter(p=>p.estado==='PENDIENTE'&&p.tipo!=='FIN').length;
             data.paradas.forEach(p => {
-                let vis='NORMAL'; if(p.tipo==='INICIO')vis='INICIO'; else if(p.tipo==='FIN')vis='FIN'; else if(p.estado!=='PENDIENTE')vis=p.estado; else if(p.tipo==='VIP')vis='VIP';
+                let vis='NORMAL'; 
+                if(p.tipo==='INICIO') vis='INICIO'; 
+                else if(p.tipo==='INICIO_FIN') vis='INICIO'; 
+                else if(p.tipo==='FIN') vis='FIN'; 
+                else if(p.estado!=='PENDIENTE') vis=p.estado; 
+                else if(p.tipo==='VIP') vis='VIP';
+                
                 const ic=createIcon(p.id.replace('P-',''), vis, p.cluster_manual);
                 const m=L.marker([p.lat, p.lon], {icon:ic}).addTo(layers.paradas);
                 m.on('click', ()=>{ if(activeZone!==-1){const v=(p.cluster_manual===activeZone)?-1:activeZone; simular(p.id,"asignar_zona",v);} });
@@ -450,15 +438,60 @@
             updateDashboard(data);
         }
 
+        // --- FUNCIÓN MODIFICADA: BOTÓN ELIMINAR SOLO SI 'manualMode' ES TRUE ---
         function bindSmartPopup(m,p,hasStart,hasEnd,pend) {
             let h=`<div style="font-weight:bold;margin-bottom:5px;">Punto ${p.id.replace('P-','')}</div>`;
             if(p.cluster_manual!==null)h+=`<div style="font-size:10px;font-weight:bold;color:${COLORES[p.cluster_manual]};">EN ZONA ${p.cluster_manual+1}</div>`;
             h+=`<div style="font-size:12px;color:#aaa;margin-bottom:10px;">${p.estado}</div><div class="popup-actions">`;
-            if(activeZone!==-1)h+=`<div style="color:${COLORES[activeZone]};font-weight:bold;">MODO EDICIÓN</div><div style="font-size:10px;">Toca para asignar</div>`;
-            else if(p.tipo==='INICIO'){h+=`<div style="color:#00E676;font-size:11px;">📍 Estás aquí</div>`;if(p.tipo!=='FIN')h+=`<button class="popup-btn btn-check" onclick="simular('${p.id}','avanzar_inicio')">🚀 Siguiente</button>`;}
-            else if(p.tipo==='FIN'){if(pend>0){h+=`<div style="color:#FF9100;font-size:11px;margin-bottom:5px;">⚠️ Faltan ${pend}</div>`;h+=`<button class="popup-btn btn-warn" onclick="simular('${p.id}','visitar')">Convertir</button>`;h+=`<button class="popup-btn btn-skip" style="font-size:10px;" onclick="askForceFinish()">Forzar Fin</button>`;}else{h+=`<button class="popup-btn btn-check" onclick="askForceFinish()">Finalizar</button>`;}}
-            else if(p.estado==='PENDIENTE'){h+=`<button class="popup-btn btn-check" onclick="simular('${p.id}','visitar')">Ya fui</button>`;h+=`<button class="popup-btn btn-skip" onclick="simular('${p.id}','omitir')">Omitir</button>`;if(!hasStart)h+=`<button class="popup-btn btn-start" style="margin-top:5px" onclick="simular('${p.id}','fijar_inicio')">🚩 Inicio</button>`;else if(!hasEnd)h+=`<button class="popup-btn btn-end" style="margin-top:5px" onclick="simular('${p.id}','fijar_fin')">🏁 Fin</button>`;}
-            else{h+=`<button class="popup-btn btn-restore" onclick="simular('${p.id}','restaurar')">Restaurar</button>`;}
+            
+            if(activeZone!==-1) {
+                h+=`<div style="color:${COLORES[activeZone]};font-weight:bold;">MODO EDICIÓN</div><div style="font-size:10px;">Toca para asignar</div>`;
+            }
+            else if(p.tipo==='INICIO_FIN'){
+                h+=`<div style="color:#00E676;font-size:11px;font-weight:bold;">🏁 META ALCANZADA</div>`;
+                if(p.estado === 'PENDIENTE'){
+                    h+=`<button class="popup-btn btn-check" style="margin-bottom:5px; background:#00E676; color:black;" onclick="visitAndFinish('${p.id}')">✅ Ya fui y Finalizar</button>`;
+                }
+                if(pend > 0){
+                    h+=`<div style="color:#FF9100;font-size:10px;">⚠️ Quedan ${pend} pendientes</div>`;
+                    h+=`<button class="popup-btn btn-skip" onclick="askForceFinish()">Forzar Fin</button>`;
+                } else {
+                    h+=`<button class="popup-btn btn-check" onclick="askForceFinish()">Finalizar Ruta</button>`;
+                }
+            }
+            else if(p.tipo==='INICIO'){
+                h+=`<div style="color:#00E676;font-size:11px;">📍 Estás aquí</div>`;
+                if(p.tipo!=='FIN') h+=`<button class="popup-btn btn-check" onclick="simular('${p.id}','avanzar_inicio')">🚀 Siguiente</button>`;
+                h+=`<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_inicio')">🚫 Quitar Inicio</button>`;
+            }
+            else if(p.tipo==='FIN'){
+                if(pend>0){
+                    h+=`<div style="color:#FF9100;font-size:11px;margin-bottom:5px;">⚠️ Faltan ${pend}</div>`;
+                    h+=`<button class="popup-btn btn-restore" style="margin-bottom:5px;" onclick="simular('${p.id}','desfijar_fin')">🚫 Quitar Fin</button>`;
+                    h+=`<button class="popup-btn btn-skip" style="font-size:10px;" onclick="askForceFinish()">Forzar Fin</button>`;
+                }else{
+                    h+=`<button class="popup-btn btn-check" onclick="askForceFinish()">Finalizar</button>`;
+                    h+=`<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_fin')">🚫 Quitar Fin</button>`;
+                }
+            }
+            else if(p.estado==='PENDIENTE'){
+                h+=`<button class="popup-btn btn-check" onclick="simular('${p.id}','visitar')">Ya fui</button>`;
+                h+=`<button class="popup-btn btn-skip" onclick="simular('${p.id}','omitir')">Omitir</button>`;
+                if(!hasStart) h+=`<button class="popup-btn btn-start" style="margin-top:5px" onclick="simular('${p.id}','fijar_inicio')">🚩 Inicio</button>`;
+                else if(!hasEnd) h+=`<button class="popup-btn btn-end" style="margin-top:5px" onclick="simular('${p.id}','fijar_fin')">🏁 Fin</button>`;
+                
+                // --- SOLO SI MODO MANUAL ESTÁ ACTIVO ---
+                if(manualMode) {
+                    h+=`<button class="popup-btn btn-skip" style="background:#D50000; margin-top:5px;" onclick="simular('${p.id}','eliminar_punto')">🗑️ Eliminar</button>`;
+                }
+            }
+            else{
+                h+=`<button class="popup-btn btn-restore" onclick="simular('${p.id}','restaurar')">Restaurar</button>`;
+                // --- SOLO SI MODO MANUAL ESTÁ ACTIVO ---
+                if(manualMode) {
+                    h+=`<button class="popup-btn btn-skip" style="background:#D50000; margin-top:5px;" onclick="simular('${p.id}','eliminar_punto')">🗑️ Eliminar</button>`;
+                }
+            }
             h+=`</div>`; m.bindPopup(h); m.on('popupopen', ()=>{if(activeZone!==-1)m.closePopup();});
         }
 

@@ -1,26 +1,12 @@
-# app/main.py
-from fastapi.responses import FileResponse 
-from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import contextlib
-
-# Importamos la configuración y rutas
-from app.core.mapa import cargar_mapa
 from app.routers import endpoints
+from app.core.mapa import get_grafo  # <-- CORRECCIÓN: Antes decía 'cargar_mapa'
 
-@contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Al iniciar la App: Cargar Mapa
-    cargar_mapa()
-    yield
-    # Al apagar la App: (Aquí podríamos limpiar memoria o cerrar DB)
-    pass
+app = FastAPI(title="Fleet Master Pro API")
 
-# Crear Instancia de FastAPI
-app = FastAPI(title="Sistema Logístico Arquitecturado", lifespan=lifespan)
-
-# Configurar CORS (Permisos para el Frontend)
+# --- CONFIGURACIÓN DE CORS ---
+# Permite que tu frontend (HTML) se comunique con el backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,8 +15,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir las rutas (Endpoints
+# --- INCLUIR RUTAS ---
 app.include_router(endpoints.router)
-@app.get("/")
-def serve_home():
-    return FileResponse("index.html")
+
+# --- EVENTO DE INICIO ---
+@app.on_event("startup")
+async def startup_event():
+    """
+    Se ejecuta automáticamente al iniciar el servidor.
+    Intenta cargar el mapa en memoria RAM de una vez para que
+    la primera petición del usuario no sea lenta.
+    """
+    print(">>> 🚀 INICIANDO SERVIDOR FLEET MASTER PRO...")
+    
+    # Llamamos a la función con el nombre NUEVO
+    grafo = get_grafo()
+    
+    if grafo:
+        print(">>> ✅ MAPA CARGADO Y SISTEMA LISTO")
+    else:
+        print(">>> ⚠️ ADVERTENCIA: El mapa no se pudo cargar al inicio (se intentará de nuevo en la primera petición)")
