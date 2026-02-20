@@ -42,6 +42,52 @@ def obtener_coords_suaves(G, lista_nodos):
     return coords_suaves
 
 # =============================================================================
+# NUEVO ENDPOINT: RUTA PUNTO A -> PUNTO B (Para Aproximación Real)
+# =============================================================================
+@router.get("/ruta-camino")
+def obtener_ruta_camino(lat_origen: float, lon_origen: float, lat_destino: float, lon_destino: float):
+    """
+    Calcula la ruta real calle por calle entre dos puntos GPS.
+    Usado para la fase de aproximación.
+    """
+    G = get_grafo()
+    if G is None: raise HTTPException(503, "Mapa no cargado")
+    
+    try:
+        # 1. Encontrar los nodos de calle más cercanos al GPS y al Destino
+        nodo_a = ox.distance.nearest_nodes(G, lon_origen, lat_origen)
+        nodo_b = ox.distance.nearest_nodes(G, lon_destino, lat_destino)
+        
+        # 2. Calcular la ruta más rápida (Dijkstra)
+        ruta_nodos = nx.shortest_path(G, nodo_a, nodo_b, weight='travel_time')
+        
+        # 3. Obtener la geometría (curvas de las calles)
+        coords = obtener_coords_suaves(G, ruta_nodos)
+        
+        # 4. Calcular distancia y tiempo reales sumando las aristas
+        dist_m = 0
+        tiempo_s = 0
+        for i in range(len(ruta_nodos)-1):
+            u, v = ruta_nodos[i], ruta_nodos[i+1]
+            # Obtenemos datos de la calle (edge)
+            # edge_data puede tener multiples keys si hay varias vias, tomamos la 0
+            edges = G.get_edge_data(u, v)
+            data = edges[0] # Tomamos la primera conexión
+            
+            dist_m += data.get('length', 0)
+            tiempo_s += data.get('travel_time', 0)
+            
+        return {
+            "coords": coords,
+            "distancia_km": round(dist_m / 1000, 2),
+            "tiempo_min": round(tiempo_s / 60)
+        }
+    except Exception as e:
+        print(f"⚠️ Error calculando ruta aproximación: {e}")
+        # Si falla (ej. no hay camino), devolvemos línea recta básica
+        return {"coords": [[lat_origen, lon_origen], [lat_destino, lon_destino]], "distancia_km": 0, "tiempo_min": 0}
+
+# =============================================================================
 # 1. ENDPOINT SIMULACIÓN
 # =============================================================================
 @router.get("/simulacion-leaflet")
@@ -62,7 +108,7 @@ def simulacion_leaflet(
         print(">>> 🧹 CACHÉ REINICIADA")
 
     G = get_grafo()
-    if G is None: raise HTTPException(503, "Cargando grafo...")
+    if G is None: raise HTTPException(503, "Cargando grafo (Espere un momento)...")
 
     puntos_totales = CACHE_SIMULACION.get("puntos", [])
     
@@ -71,20 +117,28 @@ def simulacion_leaflet(
         # --- GENERAR ALEATORIO ---
         if accion_tipo == "generar_random":
             print(f"\n>>> 🎲 GENERANDO EN: '{zona_generacion}'")
-            clave_zona = zona_generacion if zona_generacion in COORDS_ZONAS else "neza"
+            
+            clave_zona = zona_generacion.lower()
+            if clave_zona not in COORDS_ZONAS: clave_zona = "neza"
+            
             centro = COORDS_ZONAS[clave_zona]
             c_lat, c_lon = centro["lat"], centro["lon"]
-            mn_lat, mx_lat = c_lat - OFFSET_ALEATORIO, c_lat + OFFSET_ALEATORIO
-            mn_lon, mx_lon = c_lon - OFFSET_ALEATORIO, c_lon + OFFSET_ALEATORIO
+            
+            offset_local = 0.012 if clave_zona == "polanco" else OFFSET_ALEATORIO
+            mn_lat, mx_lat = c_lat - offset_local, c_lat + offset_local
+            mn_lon, mx_lon = c_lon - offset_local, c_lon + offset_local
+            
+            cantidad_puntos = random.randint(10, 40)
             
             lats_t, lons_t = [], []
-            for _ in range(32):
+            for _ in range(cantidad_puntos):
                 lats_t.append(random.uniform(mn_lat, mx_lat))
                 lons_t.append(random.uniform(mn_lon, mx_lon))
             
             try:
                 nodos_raw = ox.distance.nearest_nodes(G, lons_t, lats_t)
                 nodos = [int(n) for n in nodos_raw]
+                
                 num = len(nodos); ft = np.zeros((num, num))
                 for i in range(num):
                     for j in range(i+1, num):
@@ -140,53 +194,27 @@ def simulacion_leaflet(
         elif accion_id:
             for p in puntos_totales:
                 if p["id"] == accion_id:
-                    if accion_tipo == "visitar": p["estado"] = "VISITADO"
+                    if accion_tipo == "visitar": 
+                        p["estado"] = "VISITADO"
+                        CACHE_SIMULACION["id_inicio"] = accion_id 
+
                     elif accion_tipo == "omitir": p["estado"] = "OMITIDO"
                     elif accion_tipo == "restaurar": p["estado"] = "PENDIENTE"
                     elif accion_tipo == "asignar_zona": p["cluster_manual"] = None if valor_extra == -1 else valor_extra
                     elif accion_tipo == "fijar_inicio": CACHE_SIMULACION["id_inicio"] = accion_id
                     elif accion_tipo == "fijar_fin": CACHE_SIMULACION["id_fin"] = accion_id
-                    
                     elif accion_tipo == "desfijar_inicio": 
                         if CACHE_SIMULACION["id_inicio"] == accion_id: CACHE_SIMULACION["id_inicio"] = None
                     elif accion_tipo == "desfijar_fin": 
                         if CACHE_SIMULACION["id_fin"] == accion_id: CACHE_SIMULACION["id_fin"] = None
-
-                    # --- NUEVO: ELIMINAR PUNTO ---
                     elif accion_tipo == "eliminar_punto":
-                        # Si era inicio o fin, lo quitamos de ahí primero
                         if CACHE_SIMULACION["id_inicio"] == accion_id: CACHE_SIMULACION["id_inicio"] = None
                         if CACHE_SIMULACION["id_fin"] == accion_id: CACHE_SIMULACION["id_fin"] = None
-                        # Marcamos como eliminado (soft delete)
                         p["estado"] = "ELIMINADO"
-
+                    elif accion_tipo == "toggle_vip":
+                        p["rol_base"] = "NORMAL" if p.get("rol_base") == "VIP" else "VIP"
                     elif accion_tipo == "avanzar_inicio":
                         p["estado"] = "VISITADO"
-                        idx_actual = p["idx"]
-                        matrix = CACHE_SIMULACION["full_matrix_time"]
-                        id_global_fin = CACHE_SIMULACION["id_fin"]
-                        mejor_dist = float('inf')
-                        siguiente_id = None
-                        
-                        # Buscar intermedios (NO FIN y NO ELIMINADOS)
-                        candidatos = [
-                            x for x in puntos_totales 
-                            if x["estado"]=="PENDIENTE" and x["id"]!=p["id"] and x["id"]!=id_global_fin
-                        ]
-                        if candidatos:
-                            for otro in candidatos:
-                                try:
-                                    d = matrix[idx_actual][otro["idx"]]
-                                    if d < mejor_dist: mejor_dist=d; siguiente_id=otro["id"]
-                                except: pass
-                        else:
-                            fin_p = next((x for x in puntos_totales if x["id"] == id_global_fin), None)
-                            if fin_p and fin_p["estado"] == "PENDIENTE": siguiente_id = id_global_fin
-                        
-                        if siguiente_id:
-                            CACHE_SIMULACION["id_inicio"] = siguiente_id
-                            pendientes = [x for x in puntos_totales if x["estado"]=="PENDIENTE" and x["id"]!=siguiente_id]
-                            if not pendientes: CACHE_SIMULACION["id_fin"] = siguiente_id
                     break
 
     # --- RESPUESTA ---
@@ -198,7 +226,6 @@ def simulacion_leaflet(
     id_ini, id_fin = CACHE_SIMULACION["id_inicio"], CACHE_SIMULACION["id_fin"]
     
     res_paradas = []
-    # FILTRO: Solo procesamos los que NO están eliminados
     puntos_activos = [p for p in pts if p["estado"] != "ELIMINADO"]
 
     for p in puntos_activos:
@@ -214,7 +241,7 @@ def simulacion_leaflet(
 
     # RUTA GLOBAL
     ruta_global_obj = None
-    indices = [i for i, p in enumerate(pts) if p["estado"] == "PENDIENTE" or i == idx_ini_n or i == idx_fin_n]
+    indices = [i for i, p in enumerate(pts) if (p["estado"] == "PENDIENTE" or i == idx_ini_n or i == idx_fin_n) and p["estado"] != "ELIMINADO"]
     if idx_ini_n is not None and len(indices) > 1:
         try:
             sub = fmt[np.ix_(indices, indices)]
@@ -232,7 +259,7 @@ def simulacion_leaflet(
 
     # RUTA VIP
     ruta_vip_obj = None
-    idx_vip = [i for i, p in enumerate(pts) if p.get("rol_base")=="VIP" and p["estado"]=="PENDIENTE"]
+    idx_vip = [i for i, p in enumerate(pts) if p.get("rol_base")=="VIP" and p["estado"]=="PENDIENTE" and p["estado"] != "ELIMINADO"]
     if idx_ini_n is not None and idx_ini_n not in idx_vip: idx_vip.insert(0, idx_ini_n)
     if len(idx_vip) > 1:
         try:

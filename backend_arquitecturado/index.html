@@ -122,12 +122,23 @@
         .user-gps-marker { width: 20px; height: 20px; background: #2979FF; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 15px #2979FF; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(41, 121, 255, 0.7); } 100% { box-shadow: 0 0 0 15px transparent; } }
         #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(41, 98, 255, 0.9); color: white; padding: 15px 30px; border-radius: 10px; font-weight: bold; display: none; z-index: 5000; }
+        
+        /* ESTILO PARA EL PANEL DE APROXIMACIÓN */
+        #approach-card {
+            position: fixed; top: 90px; left: 50%; transform: translateX(-50%);
+            background: rgba(18, 18, 18, 0.95); border: 1px solid #00E676;
+            padding: 15px; border-radius: 30px; z-index: 2000; text-align: center;
+            display: none; backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6); min-width: 220px;
+        }
     </style>
 </head>
 <body>
     <div id="loading">procesando...</div>
     <div id="exit-edit-btn" onclick="stopEditing()">❌ TERMINAR EDICIÓN</div>
     <div id="manual-toast">👆 TOCA EL MAPA PARA AGREGAR</div>
+
+    <div id="approach-card"></div>
 
     <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
@@ -138,7 +149,7 @@
     </div>
 
     <div class="sidebar" id="main-sidebar">
-        <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:5px; padding-left:10px;">ACCIONES</div>
+        <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:5px; padding-left:10px;">HERRAMIENTAS</div>
         
         <div class="menu-btn" id="btn_manual" onclick="toggleManualMode()">
             <span class="icon" style="color:#00E676">👆</span><span class="label">Agregar Manual</span>
@@ -154,8 +165,12 @@
         <div class="menu-btn" onclick="openZoneSelection()"> <span class="icon">🎲</span><span class="label">Generar Aleatorio</span>
         </div>
         
+        <div class="menu-btn" onclick="askForceFinish()">
+            <span class="icon" style="color:#FF1744">🏁</span><span class="label">Finalizar Ruta</span>
+        </div>
+        
         <hr>
-        <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:5px; padding-left:10px;">ZONAS & RUTAS</div>
+        <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:5px; padding-left:10px;">ZONAS</div>
 
         <div class="menu-btn" onclick="addZone()">
             <span class="icon">➕</span><span class="label">Nueva Zona Manual</span>
@@ -176,8 +191,9 @@
                 <button class="veh-btn" style="width:100%" onclick="generateRandomZone('santa_fe')">
                     <span style="font-size:24px">🏢</span><br>SANTA FE
                 </button>
-                <button class="veh-btn" style="width:100%" onclick="generateRandomZone('sur')">
-                    <span style="font-size:24px">🌳</span><br>SUR (C.U.)
+                
+                <button class="veh-btn" style="width:100%" onclick="generateRandomZone('polanco')">
+                    <span style="font-size:24px">🏢</span><br>POLANCO
                 </button>
             </div>
             <button class="btn-cancel" onclick="closeZoneSelection()">Cancelar</button>
@@ -221,9 +237,9 @@
 
     <div id="search-modal" class="modal-overlay">
         <div class="modal-box">
-            <div class="modal-title">🔍 Agregar Parada</div>
+            <div class="modal-title">🔍 Buscar Lugar</div>
             <div class="search-modal-box">
-                <input type="text" id="address-input" class="search-input" placeholder="Dirección..." onkeypress="handleEnter(event)">
+                <input type="text" id="address-input" class="search-input" placeholder="Introduce una dirección/lugar" onkeypress="handleEnter(event)">
                 <button class="search-btn" onclick="searchAddress()">IR</button>
             </div>
             <button class="btn-cancel" onclick="closeSearchModal()">Cancelar</button>
@@ -243,17 +259,7 @@
     <div id="summary-screen" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-title">📊 REPORTE FINAL</div>
-            <div class="stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                <div>📦 Total: <span id="stat-total">0</span></div>
-                <div style="color:#00E676">✅ OK: <span id="stat-ok">0</span></div>
-                <div style="color:#FF1744">🚫 Skip: <span id="stat-skip">0</span></div>
-                <div style="color:#FF9100">⚠️ Pend: <span id="stat-pend">0</span></div>
             </div>
-            <hr style="border-color:#444; margin:15px 0;">
-            <div style="font-size:12px; color:#aaa;">Inicio: <span id="stat-cons-initial">0.00</span></div>
-            <div style="font-size:18px;">⛽ Consumo: <b style="color:#00E676" id="stat-cons-final">0.00</b></div>
-            <button class="btn-primary" style="margin-top:20px;" onclick="location.reload()">🔄 NUEVO</button>
-        </div>
     </div>
 
     <div id="map"></div>
@@ -267,25 +273,56 @@
         const map = L.map('map', {zoomControl: false}).setView([19.4326, -99.1332], 11);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
 
-        const layers = { paradas: L.layerGroup().addTo(map), rutas: L.layerGroup().addTo(map), global: L.layerGroup(), vip: L.layerGroup(), gps: L.layerGroup().addTo(map) };
+        const layers = { 
+            paradas: L.layerGroup().addTo(map), 
+            rutas: L.layerGroup().addTo(map), 
+            global: L.layerGroup(), 
+            vip: L.layerGroup(), 
+            gps: L.layerGroup().addTo(map),
+            approach: L.layerGroup().addTo(map) // NUEVA CAPA APROXIMACIÓN
+        };
+        
+        // VARIABLES GLOBALES NUEVAS
+        let startPointCoords = null; 
+        let isApproaching = true;    
+        let userLat = null, userLng = null; 
+        let finalApproachStats = { km: 0, fuel: 0, min: 0 }; // MEMORIA DE GASTO INICIAL
+        let lastFetchTime = 0; // Para el throttle del GPS
+
         let activeZone = -1, zoneList = [], openMenuId = -1, gpsWatchId = null, lastData = null;
         let vehicleConfig = { rate: 10, unit: 'L', stopCost: 0.02 };
         let initialSnapshot = { km: 0, stops: 0, captured: false };
         const COLORES = ["#00B0FF", "#D500F9", "#76FF03", "#FF9100", "#F50057", "#651FFF"];
 
+        const ANT_PATH_OPTIONS = {
+            delay: 1000,          
+            dashArray: [15, 30],  
+            weight: 5,            
+            hardwareAccelerated: true 
+        };
+
         window.onload = function() { simular(null, null, null, true); };
 
         let manualMode = false;
+        
         function toggleManualMode() {
             manualMode = !manualMode;
             const btn = document.getElementById('btn_manual');
             const toast = document.getElementById('manual-toast');
+            
             if(manualMode) {
-                btn.classList.add('manual-active'); document.getElementById('map').style.cursor = 'crosshair'; toast.style.display = 'block'; toggleSidebar();
+                btn.classList.add('manual-active'); 
+                document.getElementById('map').style.cursor = 'crosshair'; 
+                toast.style.display = 'block'; 
+                toggleSidebar();
             } else {
-                btn.classList.remove('manual-active'); document.getElementById('map').style.cursor = ''; toast.style.display = 'none';
+                btn.classList.remove('manual-active'); 
+                document.getElementById('map').style.cursor = ''; 
+                toast.style.display = 'none';
             }
+            if(lastData) renderMap(lastData);
         }
+        
         map.on('click', (e) => {
             if (manualMode && confirm("¿Agregar parada en este punto?")) {
                 simular(null, "crear_manual", null, false, null, e.latlng.lat, e.latlng.lng);
@@ -298,6 +335,9 @@
         function generateRandomZone(zone) {
             closeZoneSelection();
             initialSnapshot.captured = false;
+            // Al generar nueva ruta, reseteamos el estado de aproximación
+            isApproaching = true; 
+            finalApproachStats = { km: 0, fuel: 0, min: 0 }; // Reset gasto
             simular(null, "generar_random", null, true, zone);
         }
 
@@ -308,21 +348,123 @@
             else { btn.innerHTML='☰'; btn.style.background='#2962FF'; }
         }
 
+        // --- LÓGICA DE GPS MODIFICADA ---
         function toggleGPS() {
-            if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId=null; layers.gps.clearLayers(); alert("GPS Off"); }
+            if (gpsWatchId) { 
+                navigator.geolocation.clearWatch(gpsWatchId); 
+                gpsWatchId=null; 
+                layers.gps.clearLayers(); 
+                layers.approach.clearLayers(); // Limpiamos línea gris
+                document.getElementById('approach-card').style.display = 'none';
+                alert("GPS Off"); 
+            }
             else {
                 if (!navigator.geolocation) return alert("No GPS");
                 gpsWatchId = navigator.geolocation.watchPosition(
                     (pos) => {
-                        const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+                        userLat = pos.coords.latitude; 
+                        userLng = pos.coords.longitude;
+                        
                         layers.gps.clearLayers();
                         const icon = L.divIcon({className: 'user-gps-marker', iconSize:[20,20]});
-                        L.marker([lat, lng], {icon: icon}).addTo(layers.gps);
-                        map.panTo([lat, lng]);
+                        L.marker([userLat, userLng], {icon: icon}).addTo(layers.gps);
+                        map.panTo([userLat, userLng]);
+                        
+                        // Actualizamos línea de aproximación
+                        updateApproachLine();
                     }, (err) => console.warn(err), { enableHighAccuracy: true }
                 );
                 alert("GPS Activado");
             }
+        }
+
+        // --- FUNCIÓN DE LÍNEA DE APROXIMACIÓN (CON DATOS REALES + ANIMACIÓN) ---
+        async function updateApproachLine() {
+            if (!userLat || !startPointCoords) return;
+            const card = document.getElementById('approach-card');
+
+            if (!isApproaching) {
+                layers.approach.clearLayers();
+                card.style.display = 'none';
+                return;
+            }
+
+            const now = Date.now();
+            // Throttle: Pedir ruta al backend solo cada 3.5 segundos para no saturar
+            if (now - lastFetchTime < 3500) return; 
+            lastFetchTime = now;
+
+            // LLAMADA AL NUEVO ENDPOINT
+            const url = `${API}/ruta-camino?lat_origen=${userLat}&lon_origen=${userLng}&lat_destino=${startPointCoords[0]}&lon_destino=${startPointCoords[1]}`;
+            
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data.coords && data.coords.length > 0) {
+                    const km = data.distancia_km;
+                    const mins = data.tiempo_min;
+                    const fuel = calculateCons(km, 0); 
+                    
+                    finalApproachStats = { km: km, fuel: fuel, min: mins };
+
+                    layers.approach.clearLayers();
+                    
+                    // Si estamos muy cerca (< 50 metros = 0.05 km)
+                    if (km < 0.05) {
+                        card.innerHTML = `
+                            <div style="color:#00E676; font-weight:bold; font-size:16px;">📍 LLEGADA AL INICIO</div>
+                            <div style="font-size:12px; color:#ccc; margin-bottom:5px;">
+                                Gastaste: <b>${fuel.toFixed(2)} ${vehicleConfig.unit}</b> en llegar.
+                            </div>
+                            <button class="btn-primary" onclick="startOfficialRoute()">🚀 INICIAR OPERACIÓN</button>
+                        `;
+                    } else {
+                        card.innerHTML = `
+                            <div style="font-size:10px; color:#aaa; text-transform:uppercase; border-bottom:1px solid #444; padding-bottom:3px; margin-bottom:5px;">
+                                Aproximación al Punto 1
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; text-align:center;">
+                                <div>
+                                    <div style="font-size:14px; font-weight:bold; color:white;">${km.toFixed(1)}</div>
+                                    <div style="font-size:9px; color:#888;">km</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:14px; font-weight:bold; color:#2979FF;">~${mins}</div>
+                                    <div style="font-size:9px; color:#888;">min</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:14px; font-weight:bold; color:#FF9100;">${fuel.toFixed(2)}</div>
+                                    <div style="font-size:9px; color:#888;">${vehicleConfig.unit}</div>
+                                </div>
+                            </div>
+                            <div style="font-size:10px; color:#666; margin-top:5px; font-style:italic;">
+                                Ruta real por calles
+                            </div>
+                        `;
+                        
+                        // --- DIBUJAR LÍNEA REAL ANIMADA (VERDE BANDERA) ---
+                        // Usamos L.polyline.antPath en lugar de L.polyline normal
+                        L.polyline.antPath(data.coords, {
+                            "delay": 1000,
+                            "dashArray": [15, 30],
+                            "weight": 5,
+                            "color": "#00C853", // Verde intenso (similar a bandera pero visible en mapa oscuro)
+                            "pulseColor": "#FFFFFF",
+                            "hardwareAccelerated": true
+                        }).addTo(layers.approach);
+                    }
+                    card.style.display = 'block';
+                }
+            } catch(e) { console.error("Error aproximacion", e); }
+        }
+
+        function startOfficialRoute() {
+            if(!confirm("¿Confirmar inicio de operación? El tiempo correrá desde ahora.")) return;
+            isApproaching = false;
+            layers.approach.clearLayers();
+            document.getElementById('approach-card').style.display = 'none';
+            alert("⏱️ CRONÓMETRO INICIADO. ¡Buen viaje!");
         }
 
         function selectType(t) { vehicleConfig.type=t; document.getElementById('step-1').style.display='none'; if(t==='bike'){vehicleConfig.rate=0;finishSetup();return;} document.getElementById(t==='moto'?'step-3':'step-2').style.display='block'; vehicleConfig.unit=t==='moto'?'L':'L'; }
@@ -408,7 +550,10 @@
                 if(zone === 'ipn') map.setView([19.5030, -99.1475], 13);
                 if(zone === 'neza') map.setView([19.4000, -99.0200], 13);
                 if(zone === 'santa_fe') map.setView([19.3610, -99.2740], 13);
-                if(zone === 'sur') map.setView([19.2900, -99.1600], 13);
+                
+                // CÁMARA A POLANCO
+                if(zone === 'polanco') map.setView([19.4355, -99.1920], 14);
+
             } catch(e){console.error(e); if(reset)alert("Error: "+e.message);} 
             finally{document.getElementById("loading").style.display='none';}
         }
@@ -419,9 +564,21 @@
         };
 
         function renderMap(data) {
-            Object.values(layers).forEach(l=>{if(l!==layers.gps)l.clearLayers();});
+            Object.values(layers).forEach(l=>{if(l!==layers.gps && l!==layers.approach)l.clearLayers();}); 
+            
+            // --- DETECTAR INICIO ---
+            const startNode = data.paradas.find(p => p.tipo === 'INICIO' || p.tipo === 'INICIO_FIN');
+            if (startNode) {
+                startPointCoords = [startNode.lat, startNode.lon];
+                // Si ya hay ruta iniciada, no aproximamos
+                if (initialSnapshot.captured && data.ruta_global) {
+                    // Aquí podrías agregar lógica extra, pero por ahora mantenemos simple
+                }
+            }
+
             const hasStart=data.paradas.some(p=>p.tipo==='INICIO' || p.tipo==='INICIO_FIN'), hasEnd=data.paradas.some(p=>p.tipo==='FIN');
             const pending=data.paradas.filter(p=>p.estado==='PENDIENTE'&&p.tipo!=='FIN').length;
+            
             data.paradas.forEach(p => {
                 let vis='NORMAL'; 
                 if(p.tipo==='INICIO') vis='INICIO'; 
@@ -436,63 +593,74 @@
                 bindSmartPopup(m,p,hasStart,hasEnd,pending);
             });
             updateDashboard(data);
+            
+            // Actualizar línea de aproximación si ya tenemos GPS
+            updateApproachLine();
         }
 
-        // --- FUNCIÓN MODIFICADA: BOTÓN ELIMINAR SOLO SI 'manualMode' ES TRUE ---
-        function bindSmartPopup(m,p,hasStart,hasEnd,pend) {
-            let h=`<div style="font-weight:bold;margin-bottom:5px;">Punto ${p.id.replace('P-','')}</div>`;
-            if(p.cluster_manual!==null)h+=`<div style="font-size:10px;font-weight:bold;color:${COLORES[p.cluster_manual]};">EN ZONA ${p.cluster_manual+1}</div>`;
-            h+=`<div style="font-size:12px;color:#aaa;margin-bottom:10px;">${p.estado}</div><div class="popup-actions">`;
-            
-            if(activeZone!==-1) {
-                h+=`<div style="color:${COLORES[activeZone]};font-weight:bold;">MODO EDICIÓN</div><div style="font-size:10px;">Toca para asignar</div>`;
+        function bindSmartPopup(m, p, hasStart, hasEnd, pend) {
+            let h = `<div style="font-weight:bold;margin-bottom:5px;">Punto ${p.id.replace('P-', '')}</div>`;
+            if (p.cluster_manual !== null) {
+                h += `<div style="font-size:10px;font-weight:bold;color:${COLORES[p.cluster_manual]};">EN ZONA ${p.cluster_manual + 1}</div>`;
             }
-            else if(p.tipo==='INICIO_FIN'){
-                h+=`<div style="color:#00E676;font-size:11px;font-weight:bold;">🏁 META ALCANZADA</div>`;
-                if(p.estado === 'PENDIENTE'){
-                    h+=`<button class="popup-btn btn-check" style="margin-bottom:5px; background:#00E676; color:black;" onclick="visitAndFinish('${p.id}')">✅ Ya fui y Finalizar</button>`;
-                }
-                if(pend > 0){
-                    h+=`<div style="color:#FF9100;font-size:10px;">⚠️ Quedan ${pend} pendientes</div>`;
-                    h+=`<button class="popup-btn btn-skip" onclick="askForceFinish()">Forzar Fin</button>`;
+            h += `<div style="font-size:12px;color:#aaa;margin-bottom:10px;">${p.estado}</div><div class="popup-actions">`;
+
+            if (manualMode) {
+                h += `<div style="color:${COLORES[activeZone] || '#00E676'};font-weight:bold;font-size:11px;margin-bottom:5px;">MODO EDICIÓN</div>`;
+                if (p.rol_base === 'VIP' || p.tipo === 'VIP') {
+                    h += `<button class="popup-btn" style="background:#FFD700; color:black; border:1px solid #FFC107;" onclick="simular('${p.id}','toggle_vip')">⭐ Quitar VIP</button>`;
                 } else {
-                    h+=`<button class="popup-btn btn-check" onclick="askForceFinish()">Finalizar Ruta</button>`;
+                    h += `<button class="popup-btn" style="background:#333; color:#FFD700; border:1px solid #FFD700;" onclick="simular('${p.id}','toggle_vip')">👑 Hacer VIP</button>`;
+                }
+                h += `<button class="popup-btn btn-skip" style="background:#D50000; margin-top:5px;" onclick="simular('${p.id}','eliminar_punto')">🗑️ Eliminar</button>`;
+            } 
+            else {
+                if (activeZone !== -1) {
+                    h += `<div style="color:${COLORES[activeZone]};font-weight:bold;">ASIGNANDO ZONAS</div><div style="font-size:10px;">Toca el marcador (no el popup)</div>`;
+                }
+                else if (p.tipo === 'INICIO_FIN') {
+                    h += `<div style="color:#00E676;font-size:11px;font-weight:bold;">🏁 META ALCANZADA</div>`;
+                    if (p.estado === 'PENDIENTE') {
+                        h += `<button class="popup-btn btn-check" style="margin-bottom:5px; background:#00E676; color:black;" onclick="visitAndFinish('${p.id}')">✅ Ya fui y Finalizar</button>`;
+                    }
+                    h += `<button class="popup-btn btn-check" onclick="askForceFinish()">Finalizar Ruta</button>`;
+                }
+                else if (p.tipo === 'INICIO') {
+                    h += `<div style="color:#00E676;font-size:11px;">📍 Estás aquí</div>`;
+                    
+                    if (p.estado === 'VISITADO') {
+                        h += `<div style="background:#333; color:#00E676; padding:5px; border-radius:4px; font-size:10px; margin-top:5px; border:1px solid #00E676;">🚚 EN TRÁNSITO...</div>`;
+                        h += `<div style="font-size:9px; color:#aaa; margin-top:3px;">Dirígete al siguiente punto y marca "Ya fui" allá.</div>`;
+                    } else {
+                        if (p.tipo !== 'FIN') h += `<button class="popup-btn btn-check" onclick="simular('${p.id}','avanzar_inicio')">🚀 Siguiente</button>`;
+                        h += `<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_inicio')">🚫 Quitar Inicio</button>`;
+                    }
+                }
+                else if (p.tipo === 'FIN') {
+                    if (pend > 0) {
+                        h += `<div style="color:#FF9100;font-size:11px;margin-bottom:5px;">⚠️ Faltan ${pend} paradas</div>`;
+                        // CORRECCIÓN: Botón "Forzar Finalizar" siempre visible
+                        h += `<button class="popup-btn btn-warn" onclick="askForceFinish()">⚠️ Forzar Finalizar</button>`;
+                        h += `<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_fin')">🚫 Quitar Fin</button>`;
+                    } else {
+                        h += `<button class="popup-btn btn-check" onclick="askForceFinish()">✅ Finalizar</button>`;
+                        h += `<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_fin')">🚫 Quitar Fin</button>`;
+                    }
+                }
+                else if (p.estado === 'PENDIENTE') {
+                    h += `<button class="popup-btn btn-check" onclick="simular('${p.id}','visitar')">Ya fui</button>`;
+                    h += `<button class="popup-btn btn-skip" onclick="simular('${p.id}','omitir')">Omitir</button>`;
+                    
+                    if (!hasStart) h += `<button class="popup-btn btn-start" style="margin-top:5px" onclick="simular('${p.id}','fijar_inicio')">🚩 Inicio</button>`;
+                    else if (!hasEnd) h += `<button class="popup-btn btn-end" style="margin-top:5px" onclick="simular('${p.id}','fijar_fin')">🏁 Fin</button>`;
+                }
+                else {
+                    h += `<button class="popup-btn btn-restore" onclick="simular('${p.id}','restaurar')">Restaurar</button>`;
                 }
             }
-            else if(p.tipo==='INICIO'){
-                h+=`<div style="color:#00E676;font-size:11px;">📍 Estás aquí</div>`;
-                if(p.tipo!=='FIN') h+=`<button class="popup-btn btn-check" onclick="simular('${p.id}','avanzar_inicio')">🚀 Siguiente</button>`;
-                h+=`<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_inicio')">🚫 Quitar Inicio</button>`;
-            }
-            else if(p.tipo==='FIN'){
-                if(pend>0){
-                    h+=`<div style="color:#FF9100;font-size:11px;margin-bottom:5px;">⚠️ Faltan ${pend}</div>`;
-                    h+=`<button class="popup-btn btn-restore" style="margin-bottom:5px;" onclick="simular('${p.id}','desfijar_fin')">🚫 Quitar Fin</button>`;
-                    h+=`<button class="popup-btn btn-skip" style="font-size:10px;" onclick="askForceFinish()">Forzar Fin</button>`;
-                }else{
-                    h+=`<button class="popup-btn btn-check" onclick="askForceFinish()">Finalizar</button>`;
-                    h+=`<button class="popup-btn btn-restore" style="margin-top:5px;" onclick="simular('${p.id}','desfijar_fin')">🚫 Quitar Fin</button>`;
-                }
-            }
-            else if(p.estado==='PENDIENTE'){
-                h+=`<button class="popup-btn btn-check" onclick="simular('${p.id}','visitar')">Ya fui</button>`;
-                h+=`<button class="popup-btn btn-skip" onclick="simular('${p.id}','omitir')">Omitir</button>`;
-                if(!hasStart) h+=`<button class="popup-btn btn-start" style="margin-top:5px" onclick="simular('${p.id}','fijar_inicio')">🚩 Inicio</button>`;
-                else if(!hasEnd) h+=`<button class="popup-btn btn-end" style="margin-top:5px" onclick="simular('${p.id}','fijar_fin')">🏁 Fin</button>`;
-                
-                // --- SOLO SI MODO MANUAL ESTÁ ACTIVO ---
-                if(manualMode) {
-                    h+=`<button class="popup-btn btn-skip" style="background:#D50000; margin-top:5px;" onclick="simular('${p.id}','eliminar_punto')">🗑️ Eliminar</button>`;
-                }
-            }
-            else{
-                h+=`<button class="popup-btn btn-restore" onclick="simular('${p.id}','restaurar')">Restaurar</button>`;
-                // --- SOLO SI MODO MANUAL ESTÁ ACTIVO ---
-                if(manualMode) {
-                    h+=`<button class="popup-btn btn-skip" style="background:#D50000; margin-top:5px;" onclick="simular('${p.id}','eliminar_punto')">🗑️ Eliminar</button>`;
-                }
-            }
-            h+=`</div>`; m.bindPopup(h); m.on('popupopen', ()=>{if(activeZone!==-1)m.closePopup();});
+            h += `</div>`;
+            m.bindPopup(h);
+            m.on('popupopen', () => { if (activeZone !== -1 && !manualMode) m.closePopup(); });
         }
 
         function updateDashboard(d) {
@@ -503,9 +671,18 @@
                 div.innerHTML=`<div class="card-title" style="color:${c}">${l}</div><div class="metric-value">${km} km</div><div class="metric-time">${ti}</div>`;
                 db.appendChild(div);
             };
-            add("GLOBAL", d.ruta_global, "#2962FF", "global"); if(d.ruta_global?.coords.length)L.polyline.antPath(d.ruta_global.coords,{color:"#2962FF"}).addTo(layers.global);
-            add("VIP", d.ruta_vip, "#FFD700", "vip"); if(d.ruta_vip?.coords.length)L.polyline.antPath(d.ruta_vip.coords,{color:"#FFD700"}).addTo(layers.vip);
-            d.rutas_clusters.forEach(r=>{add(`ZONA ${r.cluster_id+1}`,r,r.color,"rutas");if(r.coords.length)L.polyline.antPath(r.coords,{color:r.color}).addTo(layers.rutas);});
+            // ANT_PATH_OPTIONS APLICADO
+            add("GLOBAL", d.ruta_global, "#2962FF", "global"); 
+            if(d.ruta_global?.coords.length) L.polyline.antPath(d.ruta_global.coords, {...ANT_PATH_OPTIONS, color: "#2962FF"}).addTo(layers.global);
+            
+            add("VIP", d.ruta_vip, "#FFD700", "vip"); 
+            if(d.ruta_vip?.coords.length) L.polyline.antPath(d.ruta_vip.coords, {...ANT_PATH_OPTIONS, color: "#FFD700"}).addTo(layers.vip);
+            
+            d.rutas_clusters.forEach(r=>{
+                add(`ZONA ${r.cluster_id+1}`,r,r.color,"rutas");
+                if(r.coords.length) L.polyline.antPath(r.coords, {...ANT_PATH_OPTIONS, color: r.color}).addTo(layers.rutas);
+            });
+
             if(vehicleConfig.rate>0&&d.ruta_global){
                 const p=d.paradas.filter(x=>x.estado==='PENDIENTE').length;
                 const c=calculateCons(parseFloat(d.ruta_global.km), p);
@@ -520,14 +697,76 @@
         window.createIcon=(l,t,z)=>{let c='bg-normal',s=30;if(t==='INICIO'){c='bg-start';s=36;}else if(t==='FIN'){c='bg-end';s=36;}else if(t==='VISITADO'||t==='OMITIDO'){c='bg-visited';s=26;}else if(z!=null){c=`z${z}`;s=32;}else if(t==='VIP'){c='bg-vip';}return L.divIcon({className:'d',html:`<div class="custom-marker ${c}" style="width:${s}px;height:${s}px;line-height:${s}px">${l}</div>`,iconSize:[s,s],iconAnchor:[s/2,s/2],popupAnchor:[0,-s/2]});};
         window.askForceFinish=()=>{document.getElementById('confirm-modal').style.display='flex';};
         window.closeConfirmModal=()=>{document.getElementById('confirm-modal').style.display='none';};
-        window.executeForceFinish=()=>{
-            closeConfirmModal(); let t=0,ok=0,s=0,p=0; lastData.paradas.forEach(x=>{t++;if(x.estado==='VISITADO')ok++;else if(x.estado==='OMITIDO')s++;else p++;});
-            document.getElementById('stat-total').innerText=t; document.getElementById('stat-ok').innerText=ok; document.getElementById('stat-skip').innerText=s; document.getElementById('stat-pend').innerText=p;
-            const u=vehicleConfig.unit; const i=calculateCons(initialSnapshot.km,initialSnapshot.stops).toFixed(2);
-            const r=parseFloat(lastData.ruta_global?lastData.ruta_global.km:0); const tr=initialSnapshot.km-r; const f=calculateCons(tr,ok).toFixed(2);
-            document.getElementById('stat-cons-initial').innerText=`${i} ${u}`; document.getElementById('stat-cons-final').innerText=`${f} ${u}`;
-            Object.values(layers).forEach(l=>{if(l!==layers.gps)l.clearLayers();}); document.getElementById('dashboard').style.display='none'; document.querySelector('.sidebar').style.display='none'; document.getElementById('sidebar-toggle').style.display='none'; document.getElementById('consumption-box').style.display='none'; document.getElementById('summary-screen').style.display='flex';
+        
+        // --- FUNCIÓN DE CIERRE MODIFICADA PARA SUMAR GASTOS ---
+        window.executeForceFinish = () => {
+            closeConfirmModal();
+            
+            // 1. CÁLCULOS DE LA RUTA OFICIAL
+            let t=0, ok=0, s=0, p=0; 
+            lastData.paradas.forEach(x=>{
+                t++; 
+                if(x.estado==='VISITADO') ok++;
+                else if(x.estado==='OMITIDO') s++;
+                else p++;
+            });
+
+            const r_km = parseFloat(lastData.ruta_global ? lastData.ruta_global.km : 0); 
+            // Cálculo aproximado de la ruta recorrida oficial
+            const tr_km = initialSnapshot.km - r_km; // Lo que ya no está pendiente
+            const route_fuel = calculateCons(tr_km, ok);
+
+            // 2. SUMA TOTAL (Aproximación + Ruta)
+            const total_km = finalApproachStats.km + tr_km;
+            const total_fuel = finalApproachStats.fuel + route_fuel;
+            const unit = vehicleConfig.unit;
+
+            // 3. GENERAR HTML DEL REPORTE DETALLADO
+            const summaryHTML = `
+                <div class="modal-title">📊 REPORTE FINAL</div>
+                
+                <div style="background:#111; padding:10px; border-radius:8px; margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:5px;">
+                        <span style="color:#aaa;">Concepto</span>
+                        <span style="color:#aaa;">Combustible</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>🚗 Aproximación:</span>
+                        <span style="color:#FF9100;">${finalApproachStats.fuel.toFixed(2)} ${unit}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>📦 Ruta Oficial:</span>
+                        <span style="color:#2979FF;">${route_fuel.toFixed(2)} ${unit}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:5px; padding-top:5px; border-top:1px solid #555; font-weight:bold; font-size:16px;">
+                        <span>TOTAL:</span>
+                        <span style="color:#00E676;">${total_fuel.toFixed(2)} ${unit}</span>
+                    </div>
+                </div>
+
+                <div class="stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:5px; font-size:12px;">
+                    <div>Distancia Total: <b>${total_km.toFixed(1)} km</b></div>
+                    <div>Paradas Hechas: <b style="color:#00E676">${ok}</b>/${t}</div>
+                </div>
+
+                <button class="btn-primary" style="margin-top:20px;" onclick="location.reload()">🔄 NUEVO VIAJE</button>
+            `;
+
+            // INYECTAR Y MOSTRAR
+            const screen = document.getElementById('summary-screen');
+            screen.querySelector('.modal-box').innerHTML = summaryHTML;
+            
+            // LIMPIEZA VISUAL
+            Object.values(layers).forEach(l=>{if(l!==layers.gps)l.clearLayers();}); 
+            document.getElementById('dashboard').style.display='none'; 
+            document.querySelector('.sidebar').style.display='none'; 
+            document.getElementById('sidebar-toggle').style.display='none'; 
+            document.getElementById('consumption-box').style.display='none'; 
+            document.getElementById('approach-card').style.display='none'; 
+            
+            screen.style.display='flex';
         };
+
         window.resetTotal=()=>confirm("¿Reiniciar?")&&location.reload();
         window.cleanRoute=()=>simular(null,"limpiar_ruta");
     </script>

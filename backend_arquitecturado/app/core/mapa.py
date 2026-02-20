@@ -6,7 +6,7 @@ from app.core.config import LAT_CENTRO, LON_CENTRO, DISTANCIA, TIPO_RED
 # Configuración para descargas grandes
 ox.settings.use_cache = True
 ox.settings.log_console = True
-ox.settings.timeout = 300  # 5 minutos de tolerancia para descargar
+ox.settings.timeout = 300  
 
 CACHE_DIR = "cache"
 if not os.path.exists(CACHE_DIR):

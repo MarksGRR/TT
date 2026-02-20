@@ -4,13 +4,12 @@
 # 1. CONFIGURACIÓN DEL MAPA (TERRENO DE JUEGO)
 # ==========================================
 
-# Usamos el Zócalo como epicentro para que el radio de 30km cubra:
-# Norte (Ecatepec), Sur (Xochimilco), Este (Neza/Chalco), Oeste (Santa Fe)
+# Usamos el Zócalo como epicentro para que el radio cubra toda la ciudad
 LAT_CENTRO = 19.432608  
 LON_CENTRO = -99.133209
 
 # Radio de carga del mapa en metros.
-# 30000 = 30km (Cubre toda la ZMVM)
+# 30000 = 30km (Excelente: Cubre Neza, Polanco, Santa Fe y más)
 DISTANCIA = 30000  
 
 # Tipo de red ('drive' es lo más ligero para autos)
@@ -21,7 +20,6 @@ TIPO_RED = "drive"
 # ==========================================
 
 # Radio de dispersión de los puntos aleatorios.
-# 0.015 mantiene los puntos "juntitos" (tipo ruta local) aunque el mapa sea gigante.
 OFFSET_ALEATORIO = 0.015 
 
 # Centros donde aparecerán los puntos aleatorios
@@ -32,32 +30,38 @@ COORDS_ZONAS = {
         "lon": -99.047402
     }, 
     
-    # Zona IPN (Tus coordenadas personalizadas exactas)
+    # Zona IPN
     "ipn": {
         "lat": 19.491472, 
         "lon": -99.140639
     },
 
-    # Nuevas zonas disponibles gracias al mapa de 30km
+    # Santa Fe
     "santa_fe": {
         "lat": 19.3610, 
         "lon": -99.2740
     },
+    
+    # CORRECCIÓN AQUÍ: "polanco" en minúsculas para que el backend lo encuentre
+    "polanco": {
+        "lat": 19.4355, 
+        "lon": -99.1920
+    },
+
+    # Sur (C.U.) - Agregado para que coincida con el botón del frontend si lo usas
     "sur": {
-        "lat": 19.413391, 
-        "lon": -99.175703
+        "lat": 19.3142,
+        "lon": -99.1836
     }
 }
 
 # ==========================================
 # 3. REGLAS DE NEGOCIO (PARA CÁLCULOS)
 # ==========================================
-# Estas variables son usadas por logica_rutas.py. 
-
 
 TIEMPO_SERVICIO_MIN = 5  # Tiempo promedio de entrega por parada (minutos)
 
-# Velocidades promedio para estimaciones si el mapa no trae datos
+# Velocidades promedio para estimaciones
 VEL_CALLE_KMH = 20 
 VEL_AVENIDA_KMH = 50
 

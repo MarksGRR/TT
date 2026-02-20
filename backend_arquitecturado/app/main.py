@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- INCLUIR RUTAS ---
+# --- INCLUIR RUTAS
 app.include_router(endpoints.router)
 
 # --- EVENTO DE INICIO ---

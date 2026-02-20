@@ -2,9 +2,6 @@ import networkx as nx
 import numpy as np
 from app.core.config import TIEMPO_SERVICIO_MIN # <--- Importamos desde config
 
-# ==========================================
-#       LÓGICA MATEMÁTICA PRINCIPAL
-# ==========================================
 
 def calcular_metricas(ruta_indices, lista_nodos_global, G, nombre_ruta="Ruta"):
     """
